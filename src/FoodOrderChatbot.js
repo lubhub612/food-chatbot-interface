@@ -6,7 +6,9 @@ const FoodOrderChatbot = () => {
     { 
         text: "Welcome to FoodExpress! How can I help you today?",
         sender: "bot",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], {year: 'numeric',
+        month: 'numeric', 
+        day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [inputValue, setInputValue] = useState("");
@@ -131,6 +133,13 @@ const [restaurantInfo] = useState([
   const [order, setOrder] = useState([]);
   const [cart, setCart] = useState([]);
   const [foodItem, setFoodItem] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(true);
+  const [isHindi, setIsHindi] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState('en-US');
+  const recognitionRef = useRef(null);
+  const synthRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -153,7 +162,8 @@ const [restaurantInfo] = useState([
 
   const handleSendMessage = () => {
     if (inputValue.trim() === "") return;
-
+const detectedHindi = isHindiText(inputValue);
+    setIsHindi(detectedHindi);
     // Add user message
     const userMessage = { text: inputValue, sender: "user", timestamp: getCurrentTime() };
     setMessages(prev => [...prev, userMessage]);
@@ -178,6 +188,8 @@ const [restaurantInfo] = useState([
     processPaymentSelection(input);
     return;
   }
+  
+  setIsHindi(false);
 
     
 
@@ -246,6 +258,13 @@ addBotMessage("Here are some commands you can use:\n\n" +
       "See the commands panel (💡 icon) for more options!");
     return;
     } else {
+      const isHindi = isHindiText(input);
+  setIsHindi(isHindi); // Save to state if needed
+
+  if (isHindi) {
+    // Handle Hindi input
+    handleHindiInput(input);
+  } else {
      await simulateTyping("Let me think about that...");
       addBotMessage("I'm here to help you order food. You can ask for our menu, add items to your order, or checkout.");
     const allMenuItems = restaurantInfo.flatMap(r => r.menuItems);
@@ -253,13 +272,13 @@ addBotMessage("Here are some commands you can use:\n\n" +
     input.toLowerCase().includes(item.name.toLowerCase())
   );
 
-  if (mentionedItem) {
-    showItemAvailability(mentionedItem.name);
-    setFoodItem(mentionedItem.name);
-    addBotMessage("You can say 'Buy from [restaurant name]' to add items to your cart.")
-
-    return;
-  }
+      if (mentionedItem) {
+        showItemAvailability(mentionedItem.name);
+        setFoodItem(mentionedItem.name);
+        addBotMessage("You can say 'Buy from [restaurant name]' to add items to your cart.")
+        return;
+      }
+     }
     }
   };
 
@@ -276,8 +295,12 @@ addBotMessage("Here are some commands you can use:\n\n" +
   };
 
   const addBotMessage = (text) => {
+    const responseText = isHindi 
+    ? generateHindiResponse(text) 
+    : text;
       setMessages(prev => [...prev, { text, sender: "bot", timestamp: getCurrentTime() }]);
-  };
+      speak(text);  
+    };
 
   const showMenu = () => {
     let menuText = "Here's our menu:\n";
@@ -807,8 +830,6 @@ const  checkItemName = (input) => {
          addBotMessage("You can say 'Buy from [restaurant name]' to add items to your cart.")
         return;
      }
-     
-     
 };
 
    const Message = ({ text, sender, timestamp }) => {
@@ -844,6 +865,158 @@ const  checkItemName = (input) => {
       handleSendMessage();
     }
   };
+
+  useEffect(() => {
+    // Check for browser support
+    if (!('webkitSpeechRecognition' in window) || !('speechSynthesis' in window)) {
+      setVoiceSupported(false);
+      return;
+    }
+
+    // Initialize speech recognition
+    recognitionRef.current = new window.webkitSpeechRecognition();
+    recognitionRef.current.continuous = false;
+    recognitionRef.current.interimResults = false;
+    recognitionRef.current.lang = 'hi-IN, en-US';
+
+    recognitionRef.current.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const detectedLang = event.results[0][0].lang; 
+      setDetectedLanguage(detectedLang);
+    setIsHindi(detectedLang.includes('hi-IN'));
+    const responseTranscript = isHindi 
+    ? generateHindiResponse(transcript) 
+    : transcript;
+      processUserInput(transcript);
+      setIsListening(false);
+    };
+
+    recognitionRef.current.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      setIsListening(false);
+    };
+
+    // Initialize speech synthesis
+    synthRef.current = window.speechSynthesis;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+    const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        setIsListening(false);
+      }
+    }
+  };
+
+  const speak = (text) => {
+    if (!synthRef.current) return;
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    synthRef.current.speak(utterance);
+  };
+
+  const generateHindiResponse = (englishText) => {
+  const translations = {
+    "Hello": "नमस्ते",
+    "What would you like to order?": "आप क्या ऑर्डर करना चाहेंगे?",
+    "Your order has been placed": "आपका ऑर्डर प्लेस हो गया है",
+    // Add more translations as needed
+  };
+  
+  return translations[englishText] || englishText;
+};
+
+const toggleLanguage = () => {
+  setPreferredLanguage(prev => prev === 'en-US' ? 'hi-IN' : 'en-US');
+};
+
+const isHindiText = (text) => {
+  // Regular expression to match Hindi characters (Unicode range for Devanagari)
+  const hindiRegex = /[\u0900-\u097F]/;
+  return hindiRegex.test(text);
+};
+
+const LanguageIndicator = ({ isHindi }) => {
+  return (
+    <div className={`language-indicator ${isHindi ? 'hindi' : 'english'}`}>
+      {isHindi ? 'हिंदी' : 'English'}
+    </div>
+  );
+};
+
+const handleHindiInput = (hindiText) => {
+  // Simple translation dictionary (would need to be expanded)
+  const responseMap = {
+    "नमस्ते": "नमस्ते! आपकी क्या सहायता कर सकता हूँ?",
+    "मेनू": "हमारे मेनू में ये विकल्प उपलब्ध हैं...",
+    "धन्यवाद": "आपका स्वागत है!"
+  };
+
+  const response = responseMap[hindiText] || 
+    "मैं अभी पूरी तरह से हिंदी नहीं समझ पा रहा हूँ। कृपया अंग्रेज़ी में लिखें।";
+  
+  addBotMessageHindi(response);
+};
+
+
+const addBotMessageHindi = (text) => {
+ // const responseText = generateHindiResponse(text);
+
+  const newMessage = {
+    text: text,
+    sender: 'bot',
+    timestamp: getCurrentTime
+  };
+  
+  setMessages(prev => [...prev, newMessage]);
+  speakHindi(text);
+};
+
+const speakHindi = (text) => {
+  if (!('speechSynthesis' in window)) {
+    console.error('Speech synthesis not supported');
+    return;
+  }
+
+  const synth = window.speechSynthesis;
+  
+  // Cancel any ongoing speech
+  synth.cancel();
+
+  // Create utterance
+  const utterance = new SpeechSynthesisUtterance(text);
+  
+  // Set language based on detection
+  utterance.lang = 'hi-IN';
+  
+  // Configure voice preferences
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+
+  // Try to find an appropriate voice
+
+
+  // Speak the text
+  synth.speak(utterance);
+};
 
 /*  useEffect(() => {
     setMessages([
@@ -908,12 +1081,55 @@ const  checkItemName = (input) => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder="Type your message here..."
+              placeholder={isHindi ? "संदेश लिखें..." : "Type a message..."}
             />
-            <button onClick={handleSendMessage}>Send</button>
+            <button onClick={handleSendMessage}>
+              {isHindi ? "भेजें" : "Send"}
+            </button>
           </div>
         </>
       )}
+      <LanguageIndicator isHindi={isHindi} />
+      <div className="voice-controls">
+        {voiceSupported ? (
+          <button 
+            onClick={toggleListening}
+            className={`voice-button ${isListening ? 'listening' : ''}`}
+            disabled={isListening}
+          >
+            {isListening ? (
+              <span className="pulse-animation">🎤 Listening...</span>
+            ) : (
+              '🎤 Speak'
+            )}
+          </button>
+        ) : (
+          <div className="voice-warning">
+            Voice features not supported in your browser
+          </div>
+        )}
+        
+        <button 
+          onClick={() => speak(messages[messages.length - 1]?.text || '')}
+          className="voice-button"
+          disabled={messages.length === 0}
+        >
+          🔄 Repeat Last
+        </button>
+        <div className="language-info">
+      {detectedLanguage && (
+        <div className={`language-tag ${isHindi ? 'hindi' : 'english'}`}>
+          {isHindi ? 'हिंदी (Hindi)' : 'English'} detected
+        </div>
+      )}
+    </div> 
+    <button 
+  onClick={toggleLanguage}
+  className="language-toggle"
+>
+  {preferredLanguage === 'en-US' ? 'Switch to Hindi' : 'हिंदी से अंग्रेज़ी'}
+</button>
+      </div>
     </div>
   );
 };

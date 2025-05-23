@@ -15,6 +15,7 @@ const ChatbotInstructions = () => {
     { command: "Delivery options", description: "Shows pickup/delivery choices" },
     { command: "Restaurant info", description: "Shows location details" },
     { command: "Help", description: "Displays this command list" }
+    
   ];
 
   return (

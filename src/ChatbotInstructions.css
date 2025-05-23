@@ -9,6 +9,7 @@
   z-index: 1000;
   overflow: hidden;
   transition: all 0.3s ease;
+  font-family: 'Noto Sans Devanagari', 'Arial', sans-serif;
 }
 
 .instructions-header {
@@ -41,6 +42,8 @@
   border-bottom: 1px solid #eee;
   display: flex;
   flex-direction: column;
+   text-align: right;
+  direction: rtl;
 }
 
 .command-item:last-child {

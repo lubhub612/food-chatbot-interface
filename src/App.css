@@ -36,3 +36,66 @@
     transform: rotate(360deg);
   }
 }
+
+
+/* Language Toggle Button */
+.language-toggle {
+  position: fixed;
+  bottom: 80px;
+  right: 30px;
+  padding: 10px 15px;
+  background: linear-gradient(135deg, #4a6fa5, #3a5a80);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.language-toggle:hover {
+  background: linear-gradient(135deg, #3a5a80, #2a4a70);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+}
+
+.language-toggle:active {
+  transform: translateY(0);
+}
+
+.language-icon {
+  font-size: 16px;
+}
+
+/* Animation for language switch */
+@keyframes languagePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.language-switch-animation {
+  animation: languagePulse 0.5s ease;
+}
+
+/* For RTL languages like Hindi */
+.language-toggle.hindi {
+  font-family: 'Noto Sans Devanagari', sans-serif;
+  padding: 10px 18px; /* Slightly wider for Hindi characters */
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .language-toggle {
+    bottom: 70px;
+    right: 20px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
